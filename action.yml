@@ -104,12 +104,15 @@ runs:
     - name: Install dependencies
       shell: bash
       working-directory: ${{ inputs.working_directory }}
+      env:
+        INSTALL_CMD: ${{ inputs.install_command }}
+        PKG_MANAGER: ${{ inputs.package_manager }}
       run: |
-        if [ -n "${{ inputs.install_command }}" ]; then
-          ${{ inputs.install_command }}
-        elif [ "${{ inputs.package_manager }}" == "bun" ]; then
+        if [ -n "$INSTALL_CMD" ]; then
+          eval "$INSTALL_CMD"
+        elif [ "$PKG_MANAGER" == "bun" ]; then
           bun install
-        elif [ "${{ inputs.package_manager }}" == "pnpm" ]; then
+        elif [ "$PKG_MANAGER" == "pnpm" ]; then
           pnpm install
         else
           npm ci
@@ -117,10 +120,12 @@ runs:
 
     - name: Install Vercel CLI
       shell: bash
+      env:
+        PKG_MANAGER: ${{ inputs.package_manager }}
       run: |
-        if [ "${{ inputs.package_manager }}" == "bun" ]; then
+        if [ "$PKG_MANAGER" == "bun" ]; then
           bun install -g vercel
-        elif [ "${{ inputs.package_manager }}" == "pnpm" ]; then
+        elif [ "$PKG_MANAGER" == "pnpm" ]; then
           pnpm install -g vercel
         else
           npm install -g vercel
@@ -135,61 +140,83 @@ runs:
     - name: Setup Vercel project linking
       shell: bash
       working-directory: ${{ inputs.working_directory }}
+      env:
+        VERCEL_ORG_ID: ${{ inputs.vercel_org_id }}
+        VERCEL_PROJECT_ID: ${{ inputs.vercel_project_id }}
+        PROJECT_NAME: ${{ inputs.vercel_project_name }}
+        REPO_NAME: ${{ github.event.repository.name }}
       run: |
         rm -rf .vercel
         mkdir -p .vercel
-        PROJECT_NAME="${{ inputs.vercel_project_name }}"
-        if [ -z "$PROJECT_NAME" ]; then
-          PROJECT_NAME="${{ github.event.repository.name }}"
-        fi
-        echo "{\"orgId\":\"${{ inputs.vercel_org_id }}\",\"projectId\":\"${{ inputs.vercel_project_id }}\",\"projectName\":\"$PROJECT_NAME\"}" > .vercel/project.json
+        FINAL_NAME="${PROJECT_NAME:-$REPO_NAME}"
+        echo "{\"orgId\":\"$VERCEL_ORG_ID\",\"projectId\":\"$VERCEL_PROJECT_ID\",\"projectName\":\"$FINAL_NAME\"}" > .vercel/project.json
 
     - name: Pull Vercel environment
       shell: bash
       working-directory: ${{ inputs.working_directory }}
-      run: vercel pull --yes --environment=preview --token=${{ inputs.vercel_token }}
+      env:
+        VERCEL_TOKEN: ${{ inputs.vercel_token }}
+      run: vercel pull --yes --environment=preview --token=$VERCEL_TOKEN
 
     - name: Build with Vercel
       shell: bash
       working-directory: ${{ inputs.working_directory }}
-      run: vercel build --token=${{ inputs.vercel_token }}
+      env:
+        VERCEL_TOKEN: ${{ inputs.vercel_token }}
+      run: vercel build --token=$VERCEL_TOKEN
 
     - name: Deploy to Vercel
       id: deploy
       shell: bash
       working-directory: ${{ inputs.working_directory }}
+      env:
+        VERCEL_TOKEN: ${{ inputs.vercel_token }}
+        VERCEL_ORG_ID: ${{ inputs.vercel_org_id }}
+        PREVIEW_ALIAS: ${{ steps.context.outputs.preview_alias }}
       run: |
-        DEPLOYMENT_URL=$(vercel deploy --prebuilt --token=${{ inputs.vercel_token }})
+        DEPLOYMENT_URL=$(vercel deploy --prebuilt --token=$VERCEL_TOKEN)
         echo "url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
         
-        if [ -n "${{ steps.context.outputs.preview_alias }}" ]; then
-          vercel alias set $DEPLOYMENT_URL ${{ steps.context.outputs.preview_alias }} --token=${{ inputs.vercel_token }} --scope=${{ inputs.vercel_org_id }} || true
-          echo "alias_url=https://${{ steps.context.outputs.preview_alias }}.vercel.app" >> $GITHUB_OUTPUT
+        if [ -n "$PREVIEW_ALIAS" ]; then
+          vercel alias set "$DEPLOYMENT_URL" "$PREVIEW_ALIAS" --token=$VERCEL_TOKEN --scope=$VERCEL_ORG_ID || true
+          echo "alias_url=https://${PREVIEW_ALIAS}.vercel.app" >> $GITHUB_OUTPUT
         fi
 
     - name: Add deployment summary
       shell: bash
+      env:
+        DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
+        ALIAS_URL: ${{ steps.deploy.outputs.alias_url }}
+        COMMIT_SHA: ${{ github.sha }}
       run: |
         echo "## ✅ Vercel Preview Deployed" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "| | |" >> $GITHUB_STEP_SUMMARY
         echo "|---|---|" >> $GITHUB_STEP_SUMMARY
-        echo "| **Deployment URL** | ${{ steps.deploy.outputs.url }} |" >> $GITHUB_STEP_SUMMARY
-        if [ -n "${{ steps.deploy.outputs.alias_url }}" ]; then
-          echo "| **Alias URL** | ${{ steps.deploy.outputs.alias_url }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| **Deployment URL** | $DEPLOYMENT_URL |" >> $GITHUB_STEP_SUMMARY
+        if [ -n "$ALIAS_URL" ]; then
+          echo "| **Alias URL** | $ALIAS_URL |" >> $GITHUB_STEP_SUMMARY
         fi
-        echo "| **Commit** | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+        echo "| **Commit** | \`$COMMIT_SHA\` |" >> $GITHUB_STEP_SUMMARY
 
     - name: Comment on PR
       if: steps.context.outputs.pr_number != ''
       uses: actions/github-script@v7
+      env:
+        PR_NUMBER: ${{ steps.context.outputs.pr_number }}
+        DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
+        ALIAS_URL: ${{ steps.deploy.outputs.alias_url }}
+        PROJECT_NAME: ${{ inputs.vercel_project_name }}
+        REPO_NAME: ${{ github.event.repository.name }}
+        COMMIT_SHA: ${{ github.sha }}
       with:
         github-token: ${{ inputs.github_token }}
         script: |
-          const prNumber = ${{ steps.context.outputs.pr_number }};
-          const deploymentUrl = "${{ steps.deploy.outputs.url }}";
-          const aliasUrl = "${{ steps.deploy.outputs.alias_url }}";
-          const projectName = "${{ inputs.vercel_project_name }}" || "${{ github.event.repository.name }}";
+          const prNumber = parseInt(process.env.PR_NUMBER);
+          const deploymentUrl = process.env.DEPLOYMENT_URL;
+          const aliasUrl = process.env.ALIAS_URL;
+          const projectName = process.env.PROJECT_NAME || process.env.REPO_NAME;
+          const commitSha = process.env.COMMIT_SHA;
           const marker = `<!-- vercel-preview-${projectName} -->`;
           
           const commentBody = `${marker}
@@ -200,7 +227,7 @@ runs:
           |---|---|
           | **Preview URL** | ${deploymentUrl} |
           ${aliasUrl ? `| **Alias URL** | ${aliasUrl} |` : ''}
-          | **Commit** | \`${{ github.sha }}\` |
+          | **Commit** | \`${commitSha}\` |
           `;
           
           const { data: comments } = await github.rest.issues.listComments({
