@@ -1,14 +1,55 @@
 # Vercel Preview Deploy Action
 
-A reusable GitHub Action for deploying preview environments to Vercel with automatic PR comments.
+A reusable GitHub Action for deploying preview environments to Vercel with automatic PR comments and full build control.
+
+## Why Use This Instead of Vercel's Native Integration?
+
+While Vercel provides native GitHub integration, this action gives you **control over where and how your builds happen**:
+
+### Key Advantages
+
+**Build in Your GitHub Actions Environment**
+- Builds run on **your GitHub Actions runners**, not Vercel's infrastructure
+- Perfect for self-hosted runners with better caching, specific tooling, or compliance requirements
+- Use `vercel build` + `vercel deploy --prebuilt` for full control
+
+**Advanced Build Customization**
+- Run prebuild scripts (configure git, generate code, set up credentials)
+- Override install commands for complex dependency requirements
+- Native Bun support alongside npm and pnpm
+
+**Stable Preview URLs**
+- Get predictable PR-specific URLs: `pr-123--myapp.vercel.app`
+- Vercel's native integration generates random deployment URLs
+- Easier to share and reference in testing workflows
+
+**Monorepo-Friendly**
+- Explicit `working_directory` support for monorepos
+- Fine-grained control over which parts of your repo to deploy
+
+**Smart PR Comments**
+- Updates the **same comment** on subsequent pushes (no PR spam)
+- Vercel's native integration can create multiple comments per PR
+
+**Workflow Flexibility**
+- Integrate with larger workflows (run tests first, conditional deploys, etc.)
+- Manual deployment triggers with `workflow_dispatch`
+
+### When to Use Vercel's Native Integration Instead
+
+Use Vercel's native integration if you:
+- Want zero configuration
+- Don't need custom build steps or environment control
+- Prefer Vercel to manage the entire build environment
 
 ## Features
 
-- 🚀 Deploy preview environments on PR
-- 💬 Auto-comment on PRs with deployment URLs
+- 🏗️ Build in GitHub Actions, deploy to Vercel
+- 🔗 Stable preview aliases (`pr-123--myapp.vercel.app`)
+- 💬 Smart PR comments that update instead of spam
 - 📦 Support for Bun, npm, and pnpm
-- 🔗 Custom preview aliases (`pr-123--myapp.vercel.app`)
-- ⚙️ Optional prebuild scripts
+- ⚙️ Prebuild scripts and custom install commands
+- 📂 Monorepo support with `working_directory`
 - 📊 GitHub Actions summary
 
 ## Usage
