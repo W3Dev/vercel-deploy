@@ -184,7 +184,13 @@ runs:
         VERCEL_ORG_ID: ${{ inputs.vercel_org_id }}
         VERCEL_PROJECT_ID: ${{ inputs.vercel_project_id }}
         VERCEL_TOKEN: ${{ inputs.vercel_token }}
-      run: vercel build --token=$VERCEL_TOKEN
+        ENVIRONMENT: ${{ inputs.environment }}
+      run: |
+        if [ "$ENVIRONMENT" == "production" ]; then
+          vercel build --prod --token=$VERCEL_TOKEN
+        else
+          vercel build --token=$VERCEL_TOKEN
+        fi
 
     - name: Run predeploy script
       if: inputs.predeploy_script != ''
