@@ -213,7 +213,7 @@ jobs:
         id: deploy
         with:
           vercel_token: ${{ secrets.VERCEL_TOKEN }}
-          vercel_org_id: 'team_M1i3qUTW4i3A6mETy54E1Fy8'
+          vercel_org_id: 'team_xxxxx'
           vercel_project_id: 'prj_xxxxx'
           package_manager: 'bun'
           working_directory: 'apps/dashboard'
