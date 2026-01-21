@@ -1,4 +1,4 @@
-name: 'Vercel Deploy Action'
+name: 'Deploy for Vercel'
 description: 'Deploy preview and production environments to Vercel'
 author: 'W3Dev'
 
