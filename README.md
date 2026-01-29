@@ -16,7 +16,7 @@ While Vercel provides native GitHub integration, this action gives you **control
 **Advanced Build Customization**
 - Run prebuild scripts (configure git, generate code, set up credentials)
 - Override install commands for complex dependency requirements
-- Native Bun support alongside npm and pnpm
+- Native Bun, Yarn, npm, and pnpm support
 
 **Stable Preview URLs**
 - Get predictable PR-specific URLs: `pr-123--myapp.vercel.app`
@@ -48,7 +48,7 @@ Use Vercel's native integration if you:
 - 🚀 Support for both preview and production deployments
 - 🔗 Stable preview aliases (`pr-123--myapp.vercel.app`)
 - 💬 Smart PR comments that update instead of spam
-- 📦 Support for Bun, npm, and pnpm
+- 📦 Support for Bun, Yarn, npm, and pnpm
 - ⚙️ Prebuild and predeploy scripts for custom workflows
 - 📂 Monorepo support with `working_directory`
 - 📊 GitHub Actions summary
@@ -104,6 +104,17 @@ jobs:
     prebuild_script: |
       git config --global user.email "ci@example.com"
       git config --global user.name "CI Bot"
+```
+
+### Using Yarn
+
+```yaml
+- uses: W3Dev/vercel-deploy@main
+  with:
+    vercel_token: ${{ secrets.VERCEL_TOKEN }}
+    vercel_org_id: 'team_xxxxx'
+    vercel_project_id: 'prj_xxxxx'
+    package_manager: 'yarn'
 ```
 
 ### Using pnpm
@@ -163,7 +174,7 @@ jobs:
 | `vercel_org_id` | Vercel Organization/Team ID | ✅ | - |
 | `vercel_project_id` | Vercel Project ID | ✅ | - |
 | `vercel_project_name` | Project name for linking | ❌ | repo name |
-| `package_manager` | `bun`, `npm`, or `pnpm` | ❌ | `bun` |
+| `package_manager` | `bun`, `yarn`, `npm`, or `pnpm` | ❌ | `bun` |
 | `node_version` | Node.js version | ❌ | `22` |
 | `working_directory` | Build directory | ❌ | `.` |
 | `alias_prefix` | Prefix for preview alias | ❌ | - |

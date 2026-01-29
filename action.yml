@@ -21,7 +21,7 @@ inputs:
     required: false
     default: ''
   package_manager:
-    description: 'Package manager to use (bun, npm, pnpm)'
+    description: 'Package manager to use (bun, yarn, npm, pnpm)'
     required: false
     default: 'bun'
   node_version:
@@ -117,6 +117,11 @@ runs:
       with:
         version: latest
 
+    - name: Enable Corepack (for Yarn)
+      if: inputs.package_manager == 'yarn'
+      shell: bash
+      run: corepack enable
+
     - name: Install dependencies
       shell: bash
       working-directory: ${{ inputs.working_directory }}
@@ -128,6 +133,8 @@ runs:
           eval "$INSTALL_CMD"
         elif [ "$PKG_MANAGER" == "bun" ]; then
           bun install
+        elif [ "$PKG_MANAGER" == "yarn" ]; then
+          yarn install --immutable
         elif [ "$PKG_MANAGER" == "pnpm" ]; then
           pnpm install
         else
@@ -144,6 +151,7 @@ runs:
         elif [ "$PKG_MANAGER" == "pnpm" ]; then
           pnpm install -g vercel
         else
+          # Use npm for yarn and npm (yarn doesn't support global installs well)
           npm install -g vercel
         fi
 
