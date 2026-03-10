@@ -169,7 +169,8 @@ jobs:
 
 ### Passing Additional Deploy Arguments
 
-Pass `deploy_args` as a space-separated list such as `--archive=tgz --meta key=value`.
+Pass `deploy_args` as a single-line argument string such as `--archive=tgz --meta key=value`.
+Quoted values are supported when needed, for example `--meta "description=My App"`.
 
 ```yaml
 - uses: W3Dev/vercel-deploy@main
