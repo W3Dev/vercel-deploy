@@ -57,7 +57,7 @@ inputs:
     required: false
     default: ''
   deploy_args:
-    description: 'Additional arguments to pass to `vercel deploy --prebuilt` (e.g., `--archive=tgz`)'
+    description: 'Space-separated additional arguments to pass to `vercel deploy --prebuilt` (e.g., `--archive=tgz --meta key=value`)'
     required: false
     default: ''
 

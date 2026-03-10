@@ -178,6 +178,8 @@ jobs:
     deploy_args: '--archive=tgz'
 ```
 
+Pass `deploy_args` as a space-separated list such as `--archive=tgz --meta key=value`.
+
 ## Inputs
 
 | Input | Description | Required | Default |
@@ -193,7 +195,7 @@ jobs:
 | `prebuild_script` | Script to run before build | ❌ | - |
 | `predeploy_script` | Script to run before deployment | ❌ | - |
 | `install_command` | Custom install command | ❌ | - |
-| `deploy_args` | Extra arguments for `vercel deploy --prebuilt` | ❌ | - |
+| `deploy_args` | Space-separated extra arguments for `vercel deploy --prebuilt` | ❌ | - |
 | `environment` | Deployment environment (`preview` or `production`) | ❌ | `preview` |
 | `github_token` | Token for PR comments | ❌ | `github.token` |
 
