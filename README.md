@@ -169,6 +169,8 @@ jobs:
 
 ### Passing Additional Deploy Arguments
 
+Pass `deploy_args` as a space-separated list such as `--archive=tgz --meta key=value`.
+
 ```yaml
 - uses: W3Dev/vercel-deploy@main
   with:
@@ -177,8 +179,6 @@ jobs:
     vercel_project_id: 'prj_xxxxx'
     deploy_args: '--archive=tgz'
 ```
-
-Pass `deploy_args` as a space-separated list such as `--archive=tgz --meta key=value`.
 
 ## Inputs
 
