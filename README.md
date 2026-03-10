@@ -16,6 +16,7 @@ While Vercel provides native GitHub integration, this action gives you **control
 **Advanced Build Customization**
 - Run prebuild scripts (configure git, generate code, set up credentials)
 - Override install commands for complex dependency requirements
+- Pass additional deploy flags such as `--archive=tgz`
 - Native Bun, Yarn, npm, and pnpm support
 
 **Stable Preview URLs**
@@ -166,6 +167,20 @@ jobs:
       npm run test
 ```
 
+### Passing Additional Deploy Arguments
+
+Pass `deploy_args` as a single-line argument string such as `--archive=tgz --meta key=value`.
+Quoted values are supported when needed, for example `--meta "description=My App"`.
+
+```yaml
+- uses: W3Dev/vercel-deploy@main
+  with:
+    vercel_token: ${{ secrets.VERCEL_TOKEN }}
+    vercel_org_id: 'team_xxxxx'
+    vercel_project_id: 'prj_xxxxx'
+    deploy_args: '--archive=tgz'
+```
+
 ## Inputs
 
 | Input | Description | Required | Default |
@@ -181,6 +196,7 @@ jobs:
 | `prebuild_script` | Script to run before build | ❌ | - |
 | `predeploy_script` | Script to run before deployment | ❌ | - |
 | `install_command` | Custom install command | ❌ | - |
+| `deploy_args` | Space-separated extra arguments for `vercel deploy --prebuilt` | ❌ | - |
 | `environment` | Deployment environment (`preview` or `production`) | ❌ | `preview` |
 | `github_token` | Token for PR comments | ❌ | `github.token` |
 

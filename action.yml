@@ -56,6 +56,10 @@ inputs:
     description: 'Optional script to run before deployment'
     required: false
     default: ''
+  deploy_args:
+    description: 'Space-separated additional arguments to pass to `vercel deploy --prebuilt` (e.g., `--archive=tgz --meta key=value`)'
+    required: false
+    default: ''
 
 outputs:
   deployment_url:
@@ -216,12 +220,30 @@ runs:
         VERCEL_TOKEN: ${{ inputs.vercel_token }}
         PREVIEW_ALIAS: ${{ steps.context.outputs.preview_alias }}
         ENVIRONMENT: ${{ inputs.environment }}
+        DEPLOY_ARGS: ${{ inputs.deploy_args }}
       run: |
+        DEPLOY_CMD=(vercel deploy --prebuilt --token=$VERCEL_TOKEN)
+
         if [ "$ENVIRONMENT" == "production" ]; then
-          DEPLOYMENT_URL=$(vercel deploy --prebuilt --prod --token=$VERCEL_TOKEN)
-        else
-          DEPLOYMENT_URL=$(vercel deploy --prebuilt --token=$VERCEL_TOKEN)
+          DEPLOY_CMD+=(--prod)
         fi
+
+        if [ -n "$DEPLOY_ARGS" ]; then
+          if [[ "$DEPLOY_ARGS" == *$'\n'* || "$DEPLOY_ARGS" == *$'\r'* ]]; then
+            echo "deploy_args must be provided as a single-line argument string" >&2
+            exit 1
+          fi
+          PARSED_DEPLOY_ARGS=$(xargs -n1 printf '%s\n' <<< "$DEPLOY_ARGS") || {
+            echo "Failed to parse deploy_args. Ensure arguments are properly formatted as a single-line string." >&2
+            exit 1
+          }
+          if [ -n "$PARSED_DEPLOY_ARGS" ]; then
+            mapfile -t DEPLOY_ARGS_ARRAY <<< "$PARSED_DEPLOY_ARGS"
+            DEPLOY_CMD+=("${DEPLOY_ARGS_ARRAY[@]}")
+          fi
+        fi
+
+        DEPLOYMENT_URL=$("${DEPLOY_CMD[@]}")
         echo "url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
 
         if [ -n "$PREVIEW_ALIAS" ]; then
