@@ -33,7 +33,7 @@ The action executes a sequential pipeline:
 7. **Environment Pull** - Fetches preview env vars from Vercel
 8. **Build** - Runs `vercel build` to create prebuilt artifact
 9. **Deploy** - Runs `vercel deploy --prebuilt`
-10. **Alias** - Creates stable PR-specific URL (e.g., `pr-123--myapp.vercel.app`)
+10. **Alias** - Creates stable PR-specific URL (e.g., `pr-123--myapp.vercel.app` or `pr-123--myapp.preview.example.com` with custom domain)
 11. **PR Comment** - Updates or creates idempotent comment with deployment links
 
 ## Key Implementation Details
@@ -47,6 +47,6 @@ The action executes a sequential pipeline:
 
 **Required inputs**: `vercel_token`, `vercel_org_id`, `vercel_project_id`
 
-**Key optional inputs**: `package_manager`, `node_version`, `working_directory`, `alias_prefix`, `prebuild_script`, `install_command`
+**Key optional inputs**: `package_manager`, `node_version`, `working_directory`, `alias_prefix`, `alias_domain`, `prebuild_script`, `install_command`
 
 **Outputs**: `deployment_url`, `alias_url`, `pr_number`

@@ -36,6 +36,10 @@ inputs:
     description: 'Prefix for preview alias (e.g., "myapp" creates pr-123--myapp.vercel.app)'
     required: false
     default: ''
+  alias_domain:
+    description: 'Custom domain for the preview alias (e.g., "preview.example.com" creates pr-123--myapp.preview.example.com instead of pr-123--myapp.vercel.app)'
+    required: false
+    default: ''
   prebuild_script:
     description: 'Optional script to run before build (e.g., configure git author)'
     required: false
@@ -60,6 +64,14 @@ inputs:
     description: 'Space-separated additional arguments to pass to `vercel deploy --prebuilt` (e.g., `--archive=tgz --meta key=value`)'
     required: false
     default: ''
+  teardown:
+    description: 'Remove preview alias when PR is closed'
+    required: false
+    default: 'false'
+  auto_clean_deployment:
+    description: 'Also delete the deployment itself (not just alias) on teardown'
+    required: false
+    default: 'false'
 
 outputs:
   deployment_url:
@@ -80,6 +92,9 @@ runs:
       shell: bash
       env:
         ENVIRONMENT: ${{ inputs.environment }}
+        ALIAS_PREFIX: ${{ inputs.alias_prefix }}
+        ALIAS_DOMAIN: ${{ inputs.alias_domain }}
+        REPO_NAME: ${{ github.event.repository.name }}
       run: |
         echo "is_production=${{ inputs.environment == 'production' }}" >> $GITHUB_OUTPUT
 
@@ -90,33 +105,52 @@ runs:
         elif [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
           if [ -n "${{ github.event.inputs.pr_number }}" ]; then
             echo "pr_number=${{ github.event.inputs.pr_number }}" >> $GITHUB_OUTPUT
-            echo "preview_alias=pr-${{ github.event.inputs.pr_number }}--${{ inputs.alias_prefix }}" >> $GITHUB_OUTPUT
+            # Generate alias if either alias_prefix or alias_domain is set
+            if [ -n "$ALIAS_PREFIX" ] || [ -n "$ALIAS_DOMAIN" ]; then
+              EFFECTIVE_PREFIX="${ALIAS_PREFIX:-$REPO_NAME}"
+              echo "preview_alias=pr-${{ github.event.inputs.pr_number }}--${EFFECTIVE_PREFIX}" >> $GITHUB_OUTPUT
+            else
+              echo "preview_alias=" >> $GITHUB_OUTPUT
+            fi
           else
             echo "pr_number=" >> $GITHUB_OUTPUT
             echo "preview_alias=" >> $GITHUB_OUTPUT
           fi
         else
           echo "pr_number=${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
-          if [ -n "${{ inputs.alias_prefix }}" ]; then
-            echo "preview_alias=pr-${{ github.event.pull_request.number }}--${{ inputs.alias_prefix }}" >> $GITHUB_OUTPUT
+          # Generate alias if either alias_prefix or alias_domain is set
+          if [ -n "$ALIAS_PREFIX" ] || [ -n "$ALIAS_DOMAIN" ]; then
+            EFFECTIVE_PREFIX="${ALIAS_PREFIX:-$REPO_NAME}"
+            echo "preview_alias=pr-${{ github.event.pull_request.number }}--${EFFECTIVE_PREFIX}" >> $GITHUB_OUTPUT
           else
             echo "preview_alias=" >> $GITHUB_OUTPUT
           fi
         fi
 
+    - name: Check for teardown
+      id: teardown_check
+      shell: bash
+      run: |
+        if [ "${{ inputs.teardown }}" == "true" ] && [ "${{ github.event.action }}" == "closed" ]; then
+          echo "should_teardown=true" >> $GITHUB_OUTPUT
+        else
+          echo "should_teardown=false" >> $GITHUB_OUTPUT
+        fi
+
     - name: Setup Node.js
+      if: steps.teardown_check.outputs.should_teardown != 'true'
       uses: actions/setup-node@v4
       with:
         node-version: ${{ inputs.node_version }}
 
     - name: Setup Bun
-      if: inputs.package_manager == 'bun'
+      if: steps.teardown_check.outputs.should_teardown != 'true' && inputs.package_manager == 'bun'
       uses: oven-sh/setup-bun@v2
       with:
         bun-version: latest
 
     - name: Setup pnpm
-      if: inputs.package_manager == 'pnpm'
+      if: steps.teardown_check.outputs.should_teardown != 'true' && inputs.package_manager == 'pnpm'
       uses: pnpm/action-setup@v4
 
     - name: Enable Corepack (for Yarn)
@@ -125,6 +159,7 @@ runs:
       run: corepack enable
 
     - name: Install dependencies
+      if: steps.teardown_check.outputs.should_teardown != 'true'
       shell: bash
       working-directory: ${{ inputs.working_directory }}
       env:
@@ -144,6 +179,7 @@ runs:
         fi
 
     - name: Install Vercel CLI
+      if: steps.teardown_check.outputs.should_teardown != 'true'
       shell: bash
       env:
         PKG_MANAGER: ${{ inputs.package_manager }}
@@ -158,12 +194,13 @@ runs:
         fi
 
     - name: Run prebuild script
-      if: inputs.prebuild_script != ''
+      if: steps.teardown_check.outputs.should_teardown != 'true' && inputs.prebuild_script != ''
       shell: bash
       working-directory: ${{ inputs.working_directory }}
       run: ${{ inputs.prebuild_script }}
 
     - name: Setup Vercel project linking
+      if: steps.teardown_check.outputs.should_teardown != 'true'
       shell: bash
       working-directory: ${{ inputs.working_directory }}
       env:
@@ -179,6 +216,7 @@ runs:
         cat .vercel/project.json
 
     - name: Pull Vercel environment
+      if: steps.teardown_check.outputs.should_teardown != 'true'
       shell: bash
       working-directory: ${{ inputs.working_directory }}
       env:
@@ -188,6 +226,7 @@ runs:
       run: vercel pull --yes --environment=${{ inputs.environment }} --token=$VERCEL_TOKEN
 
     - name: Build with Vercel
+      if: steps.teardown_check.outputs.should_teardown != 'true'
       shell: bash
       working-directory: ${{ inputs.working_directory }}
       env:
@@ -203,13 +242,14 @@ runs:
         fi
 
     - name: Run predeploy script
-      if: inputs.predeploy_script != ''
+      if: steps.teardown_check.outputs.should_teardown != 'true' && inputs.predeploy_script != ''
       shell: bash
       working-directory: ${{ inputs.working_directory }}
       run: ${{ inputs.predeploy_script }}
 
     - name: Deploy to Vercel
       id: deploy
+      if: steps.teardown_check.outputs.should_teardown != 'true'
       shell: bash
       working-directory: ${{ inputs.working_directory }}
       env:
@@ -219,6 +259,7 @@ runs:
         PREVIEW_ALIAS: ${{ steps.context.outputs.preview_alias }}
         ENVIRONMENT: ${{ inputs.environment }}
         DEPLOY_ARGS: ${{ inputs.deploy_args }}
+        ALIAS_DOMAIN: ${{ inputs.alias_domain }}
       run: |
         DEPLOY_CMD=(vercel deploy --prebuilt --token=$VERCEL_TOKEN)
 
@@ -245,11 +286,14 @@ runs:
         echo "url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
 
         if [ -n "$PREVIEW_ALIAS" ]; then
-          vercel alias set "$DEPLOYMENT_URL" "$PREVIEW_ALIAS" --token=$VERCEL_TOKEN --scope=$VERCEL_ORG_ID || true
-          echo "alias_url=https://${PREVIEW_ALIAS}.vercel.app" >> $GITHUB_OUTPUT
+          EFFECTIVE_DOMAIN="${ALIAS_DOMAIN:-vercel.app}"
+          ALIAS_FQDN="${PREVIEW_ALIAS}.${EFFECTIVE_DOMAIN}"
+          vercel alias set "$DEPLOYMENT_URL" "$ALIAS_FQDN" --token=$VERCEL_TOKEN --scope=$VERCEL_ORG_ID || true
+          echo "alias_url=https://${ALIAS_FQDN}" >> $GITHUB_OUTPUT
         fi
 
     - name: Add deployment summary
+      if: steps.teardown_check.outputs.should_teardown != 'true'
       shell: bash
       env:
         DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
@@ -272,7 +316,7 @@ runs:
         echo "| **Commit** | \`$COMMIT_SHA\` |" >> $GITHUB_STEP_SUMMARY
 
     - name: Comment on PR
-      if: steps.context.outputs.pr_number != '' && inputs.environment != 'production'
+      if: steps.teardown_check.outputs.should_teardown != 'true' && steps.context.outputs.pr_number != '' && inputs.environment != 'production'
       uses: actions/github-script@v7
       env:
         PR_NUMBER: ${{ steps.context.outputs.pr_number }}
@@ -314,6 +358,133 @@ runs:
             comment.body.includes(marker)
           );
           
+          if (existingComment) {
+            await github.rest.issues.updateComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: existingComment.id,
+              body: commentBody
+            });
+          } else {
+            await github.rest.issues.createComment({
+              issue_number: prNumber,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: commentBody
+            });
+          }
+
+    # Teardown steps
+    - name: Install Vercel CLI (for teardown)
+      if: steps.teardown_check.outputs.should_teardown == 'true'
+      shell: bash
+      run: npm install -g vercel
+
+    - name: Get deployment URL from alias
+      id: get_deployment
+      if: steps.teardown_check.outputs.should_teardown == 'true' && inputs.auto_clean_deployment == 'true' && steps.context.outputs.preview_alias != ''
+      shell: bash
+      env:
+        VERCEL_TOKEN: ${{ inputs.vercel_token }}
+        VERCEL_ORG_ID: ${{ inputs.vercel_org_id }}
+        PREVIEW_ALIAS: ${{ steps.context.outputs.preview_alias }}
+        ALIAS_DOMAIN: ${{ inputs.alias_domain }}
+      run: |
+        # Query Vercel API to get deployment URL linked to this alias
+        EFFECTIVE_DOMAIN="${ALIAS_DOMAIN:-vercel.app}"
+        ALIAS_FQDN="${PREVIEW_ALIAS}.${EFFECTIVE_DOMAIN}"
+        RESPONSE=$(curl -s -H "Authorization: Bearer $VERCEL_TOKEN" \
+          "https://api.vercel.com/v4/aliases?teamId=$VERCEL_ORG_ID&domain=$ALIAS_FQDN")
+
+        # Extract deployment ID from response
+        DEPLOYMENT_ID=$(echo "$RESPONSE" | jq -r '.aliases[0].deploymentId // empty')
+
+        if [ -n "$DEPLOYMENT_ID" ]; then
+          echo "deployment_id=$DEPLOYMENT_ID" >> $GITHUB_OUTPUT
+          echo "Found deployment: $DEPLOYMENT_ID"
+        else
+          echo "No deployment found for alias: $ALIAS_FQDN"
+        fi
+
+    - name: Remove alias
+      id: remove_alias
+      if: steps.teardown_check.outputs.should_teardown == 'true' && steps.context.outputs.preview_alias != ''
+      shell: bash
+      env:
+        VERCEL_TOKEN: ${{ inputs.vercel_token }}
+        VERCEL_ORG_ID: ${{ inputs.vercel_org_id }}
+        PREVIEW_ALIAS: ${{ steps.context.outputs.preview_alias }}
+        ALIAS_DOMAIN: ${{ inputs.alias_domain }}
+      run: |
+        EFFECTIVE_DOMAIN="${ALIAS_DOMAIN:-vercel.app}"
+        ALIAS_FQDN="${PREVIEW_ALIAS}.${EFFECTIVE_DOMAIN}"
+        vercel alias rm "$ALIAS_FQDN" --yes --token=$VERCEL_TOKEN --scope=$VERCEL_ORG_ID || true
+        echo "Removed alias: ${ALIAS_FQDN}"
+
+    - name: Delete deployment
+      if: steps.teardown_check.outputs.should_teardown == 'true' && inputs.auto_clean_deployment == 'true' && steps.get_deployment.outputs.deployment_id != ''
+      shell: bash
+      env:
+        VERCEL_TOKEN: ${{ inputs.vercel_token }}
+        VERCEL_ORG_ID: ${{ inputs.vercel_org_id }}
+        DEPLOYMENT_ID: ${{ steps.get_deployment.outputs.deployment_id }}
+      run: |
+        # Delete deployment via API
+        curl -X DELETE \
+          "https://api.vercel.com/v13/deployments/$DEPLOYMENT_ID?teamId=$VERCEL_ORG_ID" \
+          -H "Authorization: Bearer $VERCEL_TOKEN" || true
+        echo "Deleted deployment: $DEPLOYMENT_ID"
+
+    - name: Comment teardown on PR
+      if: steps.teardown_check.outputs.should_teardown == 'true' && steps.context.outputs.pr_number != ''
+      uses: actions/github-script@v7
+      env:
+        PR_NUMBER: ${{ steps.context.outputs.pr_number }}
+        PREVIEW_ALIAS: ${{ steps.context.outputs.preview_alias }}
+        PROJECT_NAME: ${{ inputs.vercel_project_name }}
+        REPO_NAME: ${{ github.event.repository.name }}
+        DEPLOYMENT_ID: ${{ steps.get_deployment.outputs.deployment_id }}
+        AUTO_CLEAN: ${{ inputs.auto_clean_deployment }}
+        ALIAS_DOMAIN: ${{ inputs.alias_domain }}
+      with:
+        github-token: ${{ inputs.github_token }}
+        script: |
+          const prNumber = parseInt(process.env.PR_NUMBER);
+          const previewAlias = process.env.PREVIEW_ALIAS;
+          const projectName = process.env.PROJECT_NAME || process.env.REPO_NAME;
+          const deploymentId = process.env.DEPLOYMENT_ID;
+          const autoClean = process.env.AUTO_CLEAN === 'true';
+          const aliasDomain = process.env.ALIAS_DOMAIN || 'vercel.app';
+          const marker = `<!-- vercel-preview-${projectName} -->`;
+
+          let details = `| **Removed Alias** | ${previewAlias}.${aliasDomain} |`;
+          if (autoClean && deploymentId) {
+            details += `\n| **Deleted Deployment** | ${deploymentId} |`;
+          }
+
+          const commentBody = `${marker}
+
+          ♻️ **Preview Deployment Removed**
+
+          The preview deployment for this PR has been cleaned up since the PR was closed.
+
+          | | |
+          |---|---|
+          ${details}
+          `;
+
+          const { data: comments } = await github.rest.issues.listComments({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: prNumber,
+            per_page: 100
+          });
+
+          const existingComment = comments.find(comment =>
+            comment.user.login === 'github-actions[bot]' &&
+            comment.body.includes(marker)
+          );
+
           if (existingComment) {
             await github.rest.issues.updateComment({
               owner: context.repo.owner,
