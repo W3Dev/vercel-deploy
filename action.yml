@@ -116,7 +116,7 @@ runs:
             echo "pr_number=" >> $GITHUB_OUTPUT
             echo "preview_alias=" >> $GITHUB_OUTPUT
           fi
-        else
+        elif [ "${{ github.event_name }}" == "pull_request" ]; then
           echo "pr_number=${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
           # Generate alias if either alias_prefix or alias_domain is set
           if [ -n "$ALIAS_PREFIX" ] || [ -n "$ALIAS_DOMAIN" ]; then
@@ -125,6 +125,10 @@ runs:
           else
             echo "preview_alias=" >> $GITHUB_OUTPUT
           fi
+        else
+          # For push events or other triggers, no PR context
+          echo "pr_number=" >> $GITHUB_OUTPUT
+          echo "preview_alias=" >> $GITHUB_OUTPUT
         fi
 
     - name: Check for teardown
@@ -286,10 +290,15 @@ runs:
         echo "url=$DEPLOYMENT_URL" >> $GITHUB_OUTPUT
 
         if [ -n "$PREVIEW_ALIAS" ]; then
+          # PR context: combine alias prefix with domain
           EFFECTIVE_DOMAIN="${ALIAS_DOMAIN:-vercel.app}"
           ALIAS_FQDN="${PREVIEW_ALIAS}.${EFFECTIVE_DOMAIN}"
           vercel alias set "$DEPLOYMENT_URL" "$ALIAS_FQDN" --token=$VERCEL_TOKEN --scope=$VERCEL_ORG_ID || true
           echo "alias_url=https://${ALIAS_FQDN}" >> $GITHUB_OUTPUT
+        elif [ -n "$ALIAS_DOMAIN" ]; then
+          # No PR context but alias_domain is set: use it directly as the full alias
+          vercel alias set "$DEPLOYMENT_URL" "$ALIAS_DOMAIN" --token=$VERCEL_TOKEN --scope=$VERCEL_ORG_ID || true
+          echo "alias_url=https://${ALIAS_DOMAIN}" >> $GITHUB_OUTPUT
         fi
 
     - name: Add deployment summary

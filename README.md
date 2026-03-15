@@ -83,6 +83,8 @@ jobs:
 
 Use a custom domain for preview aliases instead of the default `.vercel.app`.
 
+**In PR deployments**, `alias_domain` replaces the `.vercel.app` suffix:
+
 ```yaml
 - uses: W3Dev/vercel-deploy@main
   with:
@@ -95,7 +97,7 @@ Use a custom domain for preview aliases instead of the default `.vercel.app`.
 
 This creates aliases like `pr-123--myapp.preview.example.com` instead of `pr-123--myapp.vercel.app`.
 
-You can also set `alias_domain` without `alias_prefix` -- the repo name will be used as the prefix automatically:
+In PR deployments you can also set `alias_domain` without `alias_prefix` -- the repo name will be used as the prefix automatically:
 
 ```yaml
 - uses: W3Dev/vercel-deploy@main
@@ -107,6 +109,32 @@ You can also set `alias_domain` without `alias_prefix` -- the repo name will be 
 ```
 
 This creates aliases like `pr-123--my-repo.preview.example.com`.
+
+**Outside PR context** (e.g., `push` to main), `alias_domain` is used directly as the full alias target:
+
+```yaml
+name: Deploy to custom domain
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: W3Dev/vercel-deploy@main
+        with:
+          vercel_token: ${{ secrets.VERCEL_TOKEN }}
+          vercel_org_id: 'team_xxxxx'
+          vercel_project_id: 'prj_xxxxx'
+          alias_domain: 'dev.example.vercel.app'
+          environment: preview
+```
+
+This aliases the deployment directly to `dev.example.vercel.app`.
 
 > **Note:** The custom domain must be configured in your Vercel project settings before use.
 
@@ -365,7 +393,7 @@ Use Vercel's native integration if you:
 | `node_version` | Node.js version | No | `22` |
 | `working_directory` | Build directory | No | `.` |
 | `alias_prefix` | Prefix for preview alias (e.g., `myapp` creates `pr-123--myapp.vercel.app`) | No | - |
-| `alias_domain` | Custom domain for preview alias (e.g., `preview.example.com`). Replaces default `.vercel.app` | No | - |
+| `alias_domain` | Custom domain for preview alias. In PR context, replaces `.vercel.app` suffix. Outside PR context, used directly as the full alias target | No | - |
 | `prebuild_script` | Script to run before build | No | - |
 | `predeploy_script` | Script to run before deployment | No | - |
 | `install_command` | Custom install command | No | - |
