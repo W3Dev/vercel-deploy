@@ -41,7 +41,7 @@ inputs:
     required: false
     default: ''
   prebuild_script:
-    description: 'Optional script to run before build (e.g., configure git author)'
+    description: 'Optional script to run before `vercel build` (e.g., configure git author)'
     required: false
     default: ''
   install_command:
@@ -57,7 +57,7 @@ inputs:
     required: false
     default: 'preview'
   predeploy_script:
-    description: 'Optional script to run before deployment'
+    description: 'Optional script to run after `vercel build` but before `vercel deploy --prebuilt`'
     required: false
     default: ''
   deploy_args:

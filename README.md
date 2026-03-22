@@ -174,6 +174,8 @@ This aliases the deployment directly to `dev.example.vercel.app`.
 <details>
 <summary><strong>Production with Pre-deploy Script</strong></summary>
 
+The `predeploy_script` runs **after** `vercel build` but **before** `vercel deploy --prebuilt`. Use it to run checks or steps that require the built output to exist, or to gate the actual upload to Vercel.
+
 ```yaml
 - uses: W3Dev/vercel-deploy@main
   with:
@@ -182,10 +184,11 @@ This aliases the deployment directly to `dev.example.vercel.app`.
     vercel_project_id: 'prj_xxxxx'
     environment: production
     predeploy_script: |
-      echo "Running pre-deployment checks..."
-      npm run lint
+      echo "Running post-build checks before deploying..."
       npm run test
 ```
+
+> **Tip:** To run scripts **before** the build (e.g., code generation or configuring git), use `prebuild_script` instead.
 
 </details>
 
@@ -394,8 +397,8 @@ Use Vercel's native integration if you:
 | `working_directory` | Build directory | No | `.` |
 | `alias_prefix` | Prefix for preview alias (e.g., `myapp` creates `pr-123--myapp.vercel.app`) | No | - |
 | `alias_domain` | Custom domain for preview alias. In PR context, replaces `.vercel.app` suffix. Outside PR context, used directly as the full alias target | No | - |
-| `prebuild_script` | Script to run before build | No | - |
-| `predeploy_script` | Script to run before deployment | No | - |
+| `prebuild_script` | Script to run before `vercel build` | No | - |
+| `predeploy_script` | Script to run after `vercel build` but before `vercel deploy --prebuilt` | No | - |
 | `install_command` | Custom install command | No | - |
 | `deploy_args` | Space-separated extra arguments for `vercel deploy --prebuilt` | No | - |
 | `environment` | Deployment environment (`preview` or `production`) | No | `preview` |
