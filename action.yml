@@ -24,6 +24,10 @@ inputs:
     description: 'Package manager to use (bun, yarn, npm, pnpm)'
     required: false
     default: 'bun'
+  package_manager_version:
+    description: 'Version of the package manager to use. If omitted, falls back to the packageManager field in package.json (pnpm) or latest (bun).'
+    required: false
+    default: ''
   node_version:
     description: 'Node.js version'
     required: false
@@ -151,11 +155,13 @@ runs:
       if: steps.teardown_check.outputs.should_teardown != 'true' && inputs.package_manager == 'bun'
       uses: oven-sh/setup-bun@v2
       with:
-        bun-version: latest
+        bun-version: ${{ inputs.package_manager_version != '' && inputs.package_manager_version || 'latest' }}
 
     - name: Setup pnpm
       if: steps.teardown_check.outputs.should_teardown != 'true' && inputs.package_manager == 'pnpm'
       uses: pnpm/action-setup@v4
+      with:
+        version: ${{ inputs.package_manager_version }}
 
     - name: Enable Corepack (for Yarn)
       if: inputs.package_manager == 'yarn'
