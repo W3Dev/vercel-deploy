@@ -28,6 +28,10 @@ inputs:
     description: 'Version of the package manager to use. If omitted, falls back to the packageManager field in package.json (pnpm) or latest (bun).'
     required: false
     default: ''
+  vercel_cli_version:
+    description: 'Vercel CLI version to install for reproducible deploys'
+    required: false
+    default: '54.6.1'
   node_version:
     description: 'Node.js version'
     required: false
@@ -193,14 +197,15 @@ runs:
       shell: bash
       env:
         PKG_MANAGER: ${{ inputs.package_manager }}
+        VERCEL_CLI_VERSION: ${{ inputs.vercel_cli_version }}
       run: |
         if [ "$PKG_MANAGER" == "bun" ]; then
-          bun install -g vercel
+          bun install -g vercel@$VERCEL_CLI_VERSION
         elif [ "$PKG_MANAGER" == "pnpm" ]; then
-          pnpm install -g vercel
+          pnpm install -g vercel@$VERCEL_CLI_VERSION
         else
           # Use npm for yarn and npm (yarn doesn't support global installs well)
-          npm install -g vercel
+          npm install -g vercel@$VERCEL_CLI_VERSION
         fi
 
     - name: Run prebuild script
@@ -393,7 +398,9 @@ runs:
     - name: Install Vercel CLI (for teardown)
       if: steps.teardown_check.outputs.should_teardown == 'true'
       shell: bash
-      run: npm install -g vercel
+      env:
+        VERCEL_CLI_VERSION: ${{ inputs.vercel_cli_version }}
+      run: npm install -g vercel@$VERCEL_CLI_VERSION
 
     - name: Get deployment URL from alias
       id: get_deployment

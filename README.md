@@ -221,6 +221,22 @@ The `predeploy_script` runs **after** `vercel build` but **before** `vercel depl
 </details>
 
 <details>
+<summary><strong>Pinning the Vercel CLI</strong></summary>
+
+The action installs a pinned Vercel CLI by default for reproducible deploys. Override `vercel_cli_version` when you want to test or roll forward to a different CLI release.
+
+```yaml
+- uses: W3Dev/vercel-deploy@main
+  with:
+    vercel_token: ${{ secrets.VERCEL_TOKEN }}
+    vercel_org_id: 'team_xxxxx'
+    vercel_project_id: 'prj_xxxxx'
+    vercel_cli_version: '54.6.1'
+```
+
+</details>
+
+<details>
 <summary><strong>Passing Additional Deploy Arguments</strong></summary>
 
 Pass `deploy_args` as a single-line argument string such as `--archive=tgz --meta key=value`.
@@ -393,6 +409,7 @@ Use Vercel's native integration if you:
 | `vercel_project_id` | Vercel Project ID | Yes | - |
 | `vercel_project_name` | Project name for linking | No | repo name |
 | `package_manager` | `bun`, `yarn`, `npm`, or `pnpm` | No | `bun` |
+| `vercel_cli_version` | Vercel CLI version to install for reproducible deploys | No | `54.6.1` |
 | `node_version` | Node.js version | No | `22` |
 | `working_directory` | Build directory | No | `.` |
 | `alias_prefix` | Prefix for preview alias (e.g., `myapp` creates `pr-123--myapp.vercel.app`) | No | - |
