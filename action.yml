@@ -199,13 +199,22 @@ runs:
         PKG_MANAGER: ${{ inputs.package_manager }}
         VERCEL_CLI_VERSION: ${{ inputs.vercel_cli_version }}
       run: |
+        # Self-hosted runners can end up with unwritable HOME subdirectories
+        # (~/.bun -> bun install -g "AccessDenied"; ~/.local/share -> Vercel
+        # CLI EACCES creating com.vercel.cli). Redirect all XDG state and the
+        # bun global dir to the per-run temp, which is always writable, for
+        # this and every subsequent step of the job.
+        mkdir -p "$RUNNER_TEMP/xdg/data" "$RUNNER_TEMP/xdg/cache" "$RUNNER_TEMP/xdg/config"
+        echo "XDG_DATA_HOME=$RUNNER_TEMP/xdg/data" >> "$GITHUB_ENV"
+        echo "XDG_CACHE_HOME=$RUNNER_TEMP/xdg/cache" >> "$GITHUB_ENV"
+        echo "XDG_CONFIG_HOME=$RUNNER_TEMP/xdg/config" >> "$GITHUB_ENV"
+        export XDG_DATA_HOME="$RUNNER_TEMP/xdg/data"
+        export XDG_CACHE_HOME="$RUNNER_TEMP/xdg/cache"
+        export XDG_CONFIG_HOME="$RUNNER_TEMP/xdg/config"
         if [ "$PKG_MANAGER" == "bun" ]; then
-          # Install into a per-run directory instead of the runner's shared
-          # ~/.bun global dir — a corrupted/root-owned global dir on a
-          # self-hosted runner makes `bun install -g` fail instantly with
-          # "An internal error occurred (AccessDenied)".
           export BUN_INSTALL="$RUNNER_TEMP/bun-global"
           mkdir -p "$BUN_INSTALL"
+          echo "BUN_INSTALL=$BUN_INSTALL" >> "$GITHUB_ENV"
           bun install -g vercel@$VERCEL_CLI_VERSION
           echo "$BUN_INSTALL/bin" >> "$GITHUB_PATH"
         elif [ "$PKG_MANAGER" == "pnpm" ]; then
