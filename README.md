@@ -451,6 +451,23 @@ Use Vercel's native integration if you:
   rewrite, switching that branch back to `pnpm install -g` should work
   again, but there's no urgency — the npm route is deterministic either
   way.
+- **The `pnpm` branch's `npm install -g` uses its own `--prefix`, not the
+  runner's default global path.** The first cut of the npm workaround
+  above (installing to npm's default global prefix,
+  `/opt/hostedtoolcache/.../lib/node_modules`) worked in isolation but
+  failed intermittently in real traffic: these are persistent self-hosted
+  runners, and every pnpm-based app in a monorepo consumer hits this step
+  at the same moment on every push, all installing the identical pinned
+  `vercel` version into that one shared, mutable path. npm's global-install
+  update does an atomic rename-swap of the existing package directory, so
+  concurrent installs race and one fails with `ENOTEMPTY` on the rename.
+  Giving the install its own `$RUNNER_TEMP`-scoped `--prefix` (mirroring
+  the `BUN_INSTALL` isolation on the bun branch above) avoids touching
+  shared state entirely, so it can't race with a sibling job no matter how
+  many run concurrently. The yarn/npm branch and the teardown path further
+  down still use the shared default prefix — they haven't been observed to
+  race in practice (fewer consumers hit them, and not from many apps at
+  once), but the same fix would apply there if that ever changes.
 
 ## License
 

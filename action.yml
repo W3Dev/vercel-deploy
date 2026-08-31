@@ -229,7 +229,21 @@ runs:
           # teardown path further down) — pnpm is still used for the
           # project's own dependency install a few steps up, this only
           # swaps the tool for the one-off global `vercel` binary.
-          npm install -g vercel@$VERCEL_CLI_VERSION
+          #
+          # npm's global install also can't share the runner's default
+          # /opt/hostedtoolcache/.../lib/node_modules prefix here: these are
+          # persistent self-hosted runners, and every pnpm-based app in the
+          # monorepo hits this step at once on every push, all installing
+          # the identical pinned `vercel` version into that one shared path.
+          # npm's global-install update does an atomic rename-swap of the
+          # existing package directory, so concurrent installs race and one
+          # loses with ENOTEMPTY. Give this install its own per-job prefix
+          # (mirroring BUN_INSTALL above) so it never touches shared state.
+          NPM_GLOBAL_PREFIX="$RUNNER_TEMP/npm-global"
+          mkdir -p "$NPM_GLOBAL_PREFIX"
+          npm install -g vercel@$VERCEL_CLI_VERSION --prefix "$NPM_GLOBAL_PREFIX"
+          echo "$NPM_GLOBAL_PREFIX/bin" >> "$GITHUB_PATH"
+          export PATH="$NPM_GLOBAL_PREFIX/bin:$PATH"
         else
           # Use npm for yarn and npm (yarn doesn't support global installs well)
           npm install -g vercel@$VERCEL_CLI_VERSION
