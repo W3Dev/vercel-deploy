@@ -431,6 +431,20 @@ Use Vercel's native integration if you:
 | `alias_url` | The aliased preview URL |
 | `pr_number` | The PR number (if applicable) |
 
+## Maintenance Notes
+
+- **`pnpm/action-setup@v4` is pinned stale.** Its `v4` tag is an annotated,
+  signed tag the maintainer has not moved since 2026-03-11 (`b906affc`),
+  which predates that project's own pnpm-11 support added on `main` on
+  2026-03-21 (`58e6119f`). That older commit only adds `$PNPM_HOME` to
+  `PATH`, not `$PNPM_HOME/bin` — pnpm 11 changed its global-bin-dir default
+  to the latter, which is why the "Install Vercel CLI" step's `pnpm`
+  branch now pins `global-bin-dir` explicitly instead of relying on
+  `action-setup`'s PATH wiring (see the comment at that step). If
+  `pnpm/action-setup@v4` is ever re-pinned to a SHA past the March 2026
+  rewrite, this workaround can likely be simplified, but there's no need
+  to remove it — it degrades safely either way.
+
 ## License
 
 MIT

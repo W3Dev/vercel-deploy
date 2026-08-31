@@ -218,6 +218,16 @@ runs:
           bun install -g vercel@$VERCEL_CLI_VERSION
           echo "$BUN_INSTALL/bin" >> "$GITHUB_PATH"
         elif [ "$PKG_MANAGER" == "pnpm" ]; then
+          # pnpm 11 moved the global bin dir default from $PNPM_HOME to
+          # $PNPM_HOME/bin; pnpm/action-setup@v4 (pinned pre-pnpm-11) never
+          # adds that to PATH, so "install -g" refuses with "configured
+          # global bin directory ... is not in PATH". Pin it explicitly to
+          # a RUNNER_TEMP dir we control, mirroring the bun branch above.
+          PNPM_GLOBAL_BIN="$RUNNER_TEMP/pnpm-global/bin"
+          mkdir -p "$PNPM_GLOBAL_BIN"
+          echo "$PNPM_GLOBAL_BIN" >> "$GITHUB_PATH"
+          export PATH="$PNPM_GLOBAL_BIN:$PATH"
+          export npm_config_global_bin_dir="$PNPM_GLOBAL_BIN"
           pnpm install -g vercel@$VERCEL_CLI_VERSION
         else
           # Use npm for yarn and npm (yarn doesn't support global installs well)
