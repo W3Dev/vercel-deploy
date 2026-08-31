@@ -438,12 +438,19 @@ Use Vercel's native integration if you:
   which predates that project's own pnpm-11 support added on `main` on
   2026-03-21 (`58e6119f`). That older commit only adds `$PNPM_HOME` to
   `PATH`, not `$PNPM_HOME/bin` — pnpm 11 changed its global-bin-dir default
-  to the latter, which is why the "Install Vercel CLI" step's `pnpm`
-  branch now pins `global-bin-dir` explicitly instead of relying on
-  `action-setup`'s PATH wiring (see the comment at that step). If
+  to the latter, so `pnpm install -g` on that pinned `action-setup`
+  refuses with "configured global bin directory ... is not in PATH".
+  Overriding via `npm_config_global_bin_dir` does **not** fix it either —
+  pnpm 11 still derives the directory straight from `$PNPM_HOME` for this
+  particular check, ignoring the config override. That's why the "Install
+  Vercel CLI" step's `pnpm` branch installs the global `vercel` binary via
+  `npm` instead of `pnpm` (see the comment at that step) — pnpm is still
+  used for the project's own dependency install a few steps earlier, this
+  only swaps the tool for the one-off global install. If
   `pnpm/action-setup@v4` is ever re-pinned to a SHA past the March 2026
-  rewrite, this workaround can likely be simplified, but there's no need
-  to remove it — it degrades safely either way.
+  rewrite, switching that branch back to `pnpm install -g` should work
+  again, but there's no urgency — the npm route is deterministic either
+  way.
 
 ## License
 
